@@ -1,0 +1,36 @@
+pipeline {
+    environment {
+        registry = "erashishpadhy/mediawiki"
+        registryCredential = 'dockerhub.id'
+        dockerImage = ''
+    }
+    agent any
+        stages {
+            stage('Cloning our Git') {
+                steps {
+                    git credentialsId: 'github_id', url: 'https://github.com/erashishpadhy/MEDIAWIKI.git'
+                }
+            }
+            stage('Building our image') {
+                steps{
+                    script {
+                        docker.build registry + ":$BUILD_NUMBER"
+                    }
+                }
+            }
+            stage('Deploy our image') {
+                steps{
+                     script {
+                        docker.withRegistry( '', registryCredential ) {
+                        dockerImage.push()
+                        }
+                    }
+            }
+        }
+            stage('Cleaning up') {
+                steps{
+                    sh "docker rmi $registry:$BUILD_NUMBER"
+                }
+            }
+        }
+    }
