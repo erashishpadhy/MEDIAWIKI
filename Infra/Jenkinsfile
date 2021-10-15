@@ -20,7 +20,7 @@ pipeline {
                     az account set -s $AZURE_SUBSCRIPTION_ID
                 '''
                 git credentialsId: 'github_id', url: 'https://github.com/erashishpadhy/MEDIAWIKI.git'
-                sh 'cd MEDIAWIKI/Terraform/'
+                sh 'cd MEDIAWIKI/Infra/Terraform/'
                 sh 'terraform init -input=false'
                 sh 'terraform plan -input=false -out tfplan' 
                 sh 'terraform show -no-color tfplan > tfplan.txt'
