@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
+    }
+    
+    environment {
+        AZURE_USERNAME        = credentials('AZURE_USERNAME') //Use appID
+        AZURE_PASSWORD        = credentials('AZURE_PASSWORD') //Use Password
+        AZURE_SUBSCRIPTION_ID = 'ServicePrincipalName'
+        AZURE_TENANT_ID       = "e0f356de-c9ea-43f1-91a3-d03bc94c54c9"
+    }
+
+    stages {
+        stage('Azure login and Plan') {
+            steps {
+                sh '''
+                    az login --service-principal -u $AZURE_USERNAME -p $AZURE_PASSWORD -t $AZURE_TENANT_ID
+                    az account set -s $AZURE_SUBSCRIPTION_ID
+                '''
+                git credentialsId: 'github_id', url: 'https://github.com/erashishpadhy/MEDIAWIKI.git'
+                sh 'cd MEDIAWIKI/Terraform/'
+                sh 'terraform init -input=false'
+                sh 'terraform plan -input=false -out tfplan' 
+                sh 'terraform show -no-color tfplan > tfplan.txt'
+            }
+        }
+
+        stage('Approval') {
+            when {
+                not {
+                    equals expected: true, actual: params.autoApprove
+                }
+            }
+
+            steps {
+                script {
+                    def plan = readFile 'tfplan.txt'
+                    input message: "Do you want to apply the plan?",
+                        parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
+                }
+            }
+        }
+
+        stage('Apply') {
+            steps {
+                sh "terraform apply -input=false tfplan"
+                sh 'az logout'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'tfplan.txt'
+        }
+    }
+}
